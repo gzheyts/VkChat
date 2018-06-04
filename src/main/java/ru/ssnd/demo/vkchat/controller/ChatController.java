@@ -1,44 +1,50 @@
 package ru.ssnd.demo.vkchat.controller;
 
-import org.json.JSONObject;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import com.vk.api.sdk.exceptions.ApiException;
+import com.vk.api.sdk.exceptions.ClientException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.async.DeferredResult;
-import org.springframework.web.servlet.ModelAndView;
+import ru.ssnd.demo.vkchat.http.PollResponse;
 import ru.ssnd.demo.vkchat.http.Response;
+import ru.ssnd.demo.vkchat.service.ChatService;
 
-@Controller
+@RestController
 @RequestMapping(value = "/api/chat")
 public class ChatController {
 
-    @RequestMapping(value = "{interlocutorId}/poll", method = RequestMethod.GET)
-    public DeferredResult<Response> poll(@PathVariable Long interlocutorId) {
+    private final ChatService chatService;
 
-        DeferredResult<Response> result = new DeferredResult<>();
+    @Autowired
+    public ChatController(ChatService chatService) {
+        this.chatService = chatService;
+    }
 
-        // This is debug code
-        //TODO Wait for a new message from ChatService, then set, not just thread with sleep
+    @GetMapping(value = "{interlocutorId}/poll")
+    public DeferredResult<PollResponse> poll(@PathVariable Integer interlocutorId) {
+
+        DeferredResult<PollResponse> result = new DeferredResult<>();
+
         new Thread(() -> {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(3000);
+                result.setResult(PollResponse.builder().messages(chatService.getMessages(interlocutorId)).build());
+            } catch (ClientException | ApiException e) {
+                e.printStackTrace();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            result.setResult(new Response());
         }).start();
 
         return result;
     }
 
-    @RequestMapping(value = "{interlocutorId}/send", method = RequestMethod.POST)
-    public Response send(@PathVariable Long interlocutorId) {
+    @PostMapping(value = "{interlocutorId}/send")
+    public Response send(@PathVariable Integer interlocutorId, @RequestBody String message) {
 
-        //TODO Send with ChatService
-
+        chatService.sendMessage(interlocutorId, message);
         return new Response.Builder()
-                .withField("message", new JSONObject())
+                .withField("message", message)
                 .build();
     }
 
